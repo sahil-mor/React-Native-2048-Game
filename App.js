@@ -2,6 +2,8 @@ import React, {Component} from 'react';
 import {View, Text,StyleSheet,Button} from 'react-native';
 import GestureRecognizer, {swipeDirections} from 'react-native-swipe-gestures';
 import { AntDesign } from '@expo/vector-icons';
+import {Animated} from "react-native";
+
 export default class GameClone extends Component {
  
   constructor(props) {
@@ -11,9 +13,17 @@ export default class GameClone extends Component {
       gestureName: 'none',
       loading : true,
       backgroundColors : [  "#616C6F", "#74B9FF","#E83350", "#26ae60","#F4C724", "#2475B0","#EA425C", "#B83227","#4BCFFA", "#45CE30",
-      "#F3CC79","#192A56","#487EB0" ],gameOver : false,iconName : "",numRows : 4
+      "#F3CC79","#192A56","#487EB0" ],gameOver : false,iconName : "",numRows : 4,
+      fadeValue: new Animated.Value(0)
     };
   }
+
+  _start = () => {
+    Animated.timing(this.state.fadeValue, {
+      toValue: 1,
+      duration: 1000
+    }).start();
+  };
 
   returnIndexForNew = values => {
     var indexes = []
@@ -30,6 +40,7 @@ export default class GameClone extends Component {
     }
     var randomIndex = Math.floor(Math.random() * indexes.length)
     randomIndex = indexes[randomIndex]
+    this._start();
     return randomIndex
   }
 
@@ -290,6 +301,11 @@ export default class GameClone extends Component {
     }
     return(
       <View style={styles.row}>
+        <Animated.View
+        style={[{
+          opacity: this.state.fadeValue,
+        },styles.row]}
+        >
         <View style={[styles.eachBox,{ backgroundColor : Colors[values[0].exponent] }]}>
           <Text style={styles.boxText}> { values[0].value } </Text>
         </View>
@@ -305,6 +321,7 @@ export default class GameClone extends Component {
         {/* <View style={[styles.eachBox,{ backgroundColor : Colors[values[4].exponent] }]}>
           <Text style={styles.boxText}> { values[4].value } </Text>
         </View> */}
+        </Animated.View>
       </View>
     )
   }
