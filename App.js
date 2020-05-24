@@ -1,8 +1,39 @@
-import React, {Component} from 'react';
-import {View, Text,StyleSheet,Button} from 'react-native';
+import React, {Component, useRef } from 'react';
+import {View, Text,StyleSheet,Alert} from 'react-native';
 import GestureRecognizer, {swipeDirections} from 'react-native-swipe-gestures';
-import { AntDesign } from '@expo/vector-icons';
+import { AntDesign,FontAwesome } from '@expo/vector-icons';
 import {Animated} from "react-native";
+import * as Font from 'expo-font'
+
+const FadeInView = (props) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current  // Initial value for opacity: 0
+  React.useEffect(() => {
+    Animated.timing(
+      fadeAnim,
+      {
+        toValue: 1,
+        duration: 500,
+      }
+    ).start();
+  }, [])
+  return (
+    <Animated.View                 // Special animatable View
+      style={{
+        ...props.style,
+        opacity: fadeAnim,  
+        opacity: fadeAnim, // Binds directly
+    transform: [{
+      translateY: fadeAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [100, 0]  // 0 : 150, 0.5 : 75, 1 : 0
+      }),
+    }],       // Bind opacity to animated value
+      }}
+    >
+      {props.children}
+    </Animated.View>
+  );
+}
 
 export default class GameClone extends Component {
  
@@ -14,7 +45,8 @@ export default class GameClone extends Component {
       loading : true,
       backgroundColors : [  "#616C6F", "#74B9FF","#E83350", "#26ae60","#F4C724", "#2475B0","#EA425C", "#B83227","#4BCFFA", "#45CE30",
       "#F3CC79","#192A56","#487EB0" ],gameOver : false,iconName : "",numRows : 4,
-      fadeValue: new Animated.Value(0)
+      fadeValue: new Animated.Value(0),score : 0,fontLoaded : false,
+    
     };
   }
 
@@ -36,7 +68,11 @@ export default class GameClone extends Component {
     } )
     if(indexes.length == 0){
       this.setState({ gameOver : true })
-      alert("game over")
+      Alert.alert(
+        'Game Over!!!',
+        `Your score is ${this.state.score} `
+      )
+      this.componentDidMount(tru)
     }
     var randomIndex = Math.floor(Math.random() * indexes.length)
     randomIndex = indexes[randomIndex]
@@ -47,16 +83,27 @@ export default class GameClone extends Component {
   componentDidMount(){
     var values = [null]
     for(var i = 1; i <= 16 ; i++){
-      values[i] = null ;
+      values[i] = null;
     }
     var randomIndex = this.returnIndexForNew(values)
     values[randomIndex] = 2
-    this.setState({ positionValues : values , loading : false })
+    this.setState({ 
+      positionValues : values ,
+      loading : false, score : 0 })
+    this.loadFonts()
+  }
+
+  loadFonts = async() => {
+    await Font.loadAsync({
+      'Satisfy' : require("./assets/fonts/Satisfy-Regular.ttf"),
+      'Caveat' : require("./assets/fonts/Caveat-Regular.ttf"),
+    })
+    this.setState({ fontLoaded : true })
   }
 
   onSwipeUp(gestureState) {
     this.setState({myText: 'You swiped up!',iconName : "upcircle" });
-    this.checkUpSwipe()
+    this.checkUpSwipe();
   }
  
   onSwipeDown(gestureState) {
@@ -96,8 +143,8 @@ export default class GameClone extends Component {
   checkLeftSwipe = () => {
     var values = this.state.positionValues
     var numRow = this.state.numRows
+    var score = this.state.score;
     var currentPositionNumber , newlyMerged = [] ,valueFoundBeforeTermination ;
-    // console.log("left : ---------------")
     var check;
     for(var rowNumber = 0 ; rowNumber < numRow ; rowNumber++){
       for(var boxNumber = 2 ; boxNumber <= numRow ; boxNumber++){
@@ -114,18 +161,16 @@ export default class GameClone extends Component {
             if( values[check] == values[currentPositionNumber] && !newlyMerged.includes(check) ){
               values[check] *= 2
               values[currentPositionNumber] = null
+              score += values[check]
               newlyMerged.push(check)
-              // console.log("in if with check : " + check + " matched for position : " + currentPositionNumber)
             }else if( check + 1 != currentPositionNumber ) {
               values[check+1] = values[currentPositionNumber]
               values[currentPositionNumber] = null
-              // console.log("in if with check : " + (check + 1) + " for position : " + currentPositionNumber)
             }
           }else{ // we need to +1
             if( check + 1 != currentPositionNumber ){
               values[check+1] = values[currentPositionNumber]
               values[currentPositionNumber] = null
-              // console.log("in else with check : " + (check + 1 )+ " for position : " + currentPositionNumber)
             }
           }
         }else{}       
@@ -133,8 +178,7 @@ export default class GameClone extends Component {
     }
     var randomIndex = this.returnIndexForNew(values)
     values[randomIndex] = 2
-    // console.log("new at : " + randomIndex)
-    this.setState({ positionValues : values })
+    this.setState({ positionValues : values, score })
   }
 
   checkRightSwipe = () => {
@@ -143,7 +187,7 @@ export default class GameClone extends Component {
     var check,valueFoundBeforeTermination;
     var newlyMerged = []
     var numRow = this.state.numRows
-    // console.log("right-----------------------")
+    var score = this.state.score
     for(var rowNumber = 0 ; rowNumber < numRow ; rowNumber++){
       for(var boxNumber = numRow - 1 ; boxNumber >= 1 ; boxNumber--){
         currentPositionNumber = rowNumber * numRow + boxNumber
@@ -152,7 +196,6 @@ export default class GameClone extends Component {
           for(check = currentPositionNumber + 1 ; check % numRow != 1; check++ ){
             if( values[check] != null ){
               valueFoundBeforeTermination = true
-              // console.log("loop breaks")
               break;
             }
           }
@@ -160,6 +203,7 @@ export default class GameClone extends Component {
             if( values[check] == values[currentPositionNumber] && !newlyMerged.includes(check) ){
               values[check] *= 2
               values[currentPositionNumber] = null
+              score += values[check]
               newlyMerged.push(check)
             }else{ //if values are not equal -> just make currentPosition to check-1
                 if(check-1 != currentPositionNumber){
@@ -167,11 +211,9 @@ export default class GameClone extends Component {
                   values[currentPositionNumber] = null 
                 }
             }
-            // console.log(check + " is check for in if position : " + currentPositionNumber)
           }else{ // loop terminates -> then check will be pointing to what -> pointing to 1 more so -> make it to check - 1
             values[check-1] = values[currentPositionNumber]
             values[currentPositionNumber] = null
-            // console.log(check + " is check for in else position  : " + currentPositionNumber)
           }
         }else{
           //value is null
@@ -180,8 +222,7 @@ export default class GameClone extends Component {
     }
     var randomIndex = this.returnIndexForNew(values)
     values[randomIndex] = 2
-    // console.log("new at : " + randomIndex)
-    this.setState({ positionValues : values })
+    this.setState({ positionValues : values ,score })
   }
 
   checkUpSwipe = () => {
@@ -189,8 +230,8 @@ export default class GameClone extends Component {
     var numRow = this.state.numRows
     var currentPositionNumber ;
     var check,valueFoundBeforeTermination,positionToBeChecked;
-    var newlyMerged = []
-    // console.log("right-----------------------")
+    var newlyMerged = [];
+    var score = this.state.score
     for(var rowNumber = 1 ; rowNumber < numRow ; rowNumber++){
       for(var boxNumber = 1 ; boxNumber <= numRow ; boxNumber++){
         currentPositionNumber = rowNumber * numRow + boxNumber
@@ -209,19 +250,17 @@ export default class GameClone extends Component {
             if( values[pos2] == values[currentPositionNumber] && !newlyMerged.includes(pos2) ){
               values[pos2] *= 2;
               values[currentPositionNumber] = null
+              score += values[pos2]
               newlyMerged.push(pos2)
-              // console.log("in if : check(row) : " + pos2 + " matched with pos " + currentPositionNumber )
             }else if( (pos2 + numRow ) != currentPositionNumber ) {
               values[pos2+numRow] = values[currentPositionNumber]
               values[currentPositionNumber] = null
-              // console.log("in if : check(row) : " + (pos2 + numRow ) + " for pos " + currentPositionNumber )
             }
           }else{ //loop completes itself -> need to add 1 to get correctPosition
             var pos2 = ( check + 1 ) * numRow + boxNumber
             if(pos2 != currentPositionNumber){
               values[pos2] = values[currentPositionNumber]
               values[currentPositionNumber] = null
-              // console.log("in else : positionToWorkWith :  " + (pos2) + " for pos : " + currentPositionNumber)
             }
           }
         }else{
@@ -231,8 +270,7 @@ export default class GameClone extends Component {
     }
     var randomIndex = this.returnIndexForNew(values)
     values[randomIndex] = 2
-    // console.log("new at : " + randomIndex)
-    this.setState({ positionValues : values })
+    this.setState({ positionValues : values , score })
   }
 
   checkDownSwipe = () => {
@@ -241,13 +279,12 @@ export default class GameClone extends Component {
     var currentPositionNumber ;
     var check,valueFoundBeforeTermination,positionToBeChecked;
     var newlyMerged = []
-    // console.log("down-----------------------")
+    var score = this.state.score
     for(var rowNumber = numRow - 2 ; rowNumber >= 0 ; rowNumber--){
       for(var boxNumber = 1 ; boxNumber <= numRow ; boxNumber++){
         currentPositionNumber = rowNumber * numRow + boxNumber
         //for value of check -> we need same boxNumber but for different rows
-        if(values[currentPositionNumber] != null){
-          console.log("down swipe for : " + currentPositionNumber )
+        if(values[currentPositionNumber] != null){  
           valueFoundBeforeTermination = false
           for( check = rowNumber + 1 ; check < numRow ; check++ ){
             positionToBeChecked = check * numRow + boxNumber
@@ -261,19 +298,17 @@ export default class GameClone extends Component {
             if( values[pos2] == values[currentPositionNumber] && !newlyMerged.includes(pos2) ){
               values[pos2] *= 2
               values[currentPositionNumber] = null
+              score += values[pos2]
               newlyMerged.push(pos2)
-              console.log("in if : check : " + pos2 + " matched for position : " + currentPositionNumber)
             }else if( pos2 - numRow != currentPositionNumber ){
               values[pos2-numRow] = values[currentPositionNumber]
               values[currentPositionNumber] = null
-              console.log("in if : check : " + (pos2 - numRow) + " for position : " + currentPositionNumber)
             }
           }else{
             var pos2 = (check - 1 ) * numRow + boxNumber
             if( pos2 != currentPositionNumber ){
               values[pos2] = values[currentPositionNumber]
               values[currentPositionNumber] = null
-              console.log("in else : check : " + pos2 + " for position : " + currentPositionNumber)
             }
           }
         }else{
@@ -281,11 +316,9 @@ export default class GameClone extends Component {
         }
       }
     }
-    console.log( "values here are : " + values )
     var randomIndex = this.returnIndexForNew(values)
     values[randomIndex] = 2
-    // console.log("new at : " + randomIndex)
-    this.setState({ positionValues : values })
+    this.setState({ positionValues : values , score })
   }
 
   returnRow = rowNumber => {
@@ -306,21 +339,26 @@ export default class GameClone extends Component {
           opacity: this.state.fadeValue,
         },styles.row]}
         >
-        <View style={[styles.eachBox,{ backgroundColor : Colors[values[0].exponent] }]}>
-          <Text style={styles.boxText}> { values[0].value } </Text>
-        </View>
-        <View style={[styles.eachBox,{ backgroundColor : Colors[values[1].exponent] }]}>
-          <Text style={styles.boxText}> { values[1].value } </Text>
-        </View>
-        <View style={[styles.eachBox,{ backgroundColor : Colors[values[2].exponent] }]}>
-          <Text style={styles.boxText}> { values[2].value } </Text>
-        </View>
-        <View style={[styles.eachBox,{ backgroundColor : Colors[values[3].exponent] }]}>
-          <Text style={styles.boxText}> { values[3].value } </Text>
-        </View>
-        {/* <View style={[styles.eachBox,{ backgroundColor : Colors[values[4].exponent] }]}>
-          <Text style={styles.boxText}> { values[4].value } </Text>
-        </View> */}
+          <View style={[styles.eachBox,{ backgroundColor : Colors[values[0].exponent] }]}>
+            <FadeInView position={(rowNumber * numRow + 1)} >
+              <Text style={styles.boxText}> { values[0].value } </Text>
+            </FadeInView>        
+          </View>
+          <View style={[styles.eachBox,{ backgroundColor : Colors[values[1].exponent] }]}>
+            <FadeInView position={(rowNumber * numRow + 2)}>
+              <Text style={styles.boxText}> { values[1].value } </Text>
+            </FadeInView>
+          </View>
+          <View style={[styles.eachBox,{ backgroundColor : Colors[values[2].exponent] }]}>
+           <FadeInView position={(rowNumber * numRow + 3)} >
+              <Text style={styles.boxText}> { values[2].value } </Text>
+            </FadeInView>        
+          </View>
+          <View style={[styles.eachBox,{ backgroundColor : Colors[values[3].exponent] }]}>
+           <FadeInView position={(rowNumber * numRow + 4)} >
+              <Text style={styles.boxText}> { values[3].value } </Text>
+            </FadeInView>
+          </View>
         </Animated.View>
       </View>
     )
@@ -333,7 +371,7 @@ export default class GameClone extends Component {
       directionalOffsetThreshold: 40
     };
  
-    if(this.state.loading){
+    if(this.state.loading || !this.state.fontLoaded){
       return(
         <Text> wait</Text> 
       )
@@ -351,6 +389,7 @@ export default class GameClone extends Component {
         >
           <View style={styles.top}>
               <Text style={styles.topText}> Match And Win </Text>
+              <Text style={styles.score}> SCORE : {this.state.score} </Text>
           </View>
           <View style={styles.middle}>
             <View style={styles.box}>
@@ -362,9 +401,15 @@ export default class GameClone extends Component {
             </View>
           </View>
           <View style={styles.bottom}>
+          <FadeInView>
             <Text style={styles.myText}> {this.state.myText} </Text>
-            <AntDesign name={this.state.iconName} size={40} color="#0ABDE3" />
+          </FadeInView>
+            { this.state.iconName == "" ?
+                <FontAwesome name="hand-stop-o" size={24} color="#EAF0F1" /> :
+                <AntDesign name={this.state.iconName} size={30} color="#EAF0F1" />
+            }
           </View>
+          
       </GestureRecognizer>
     );
   }
@@ -372,7 +417,7 @@ export default class GameClone extends Component {
 
 const styles = StyleSheet.create({
   container : {
-    flex: 1,justifyContent : "center",flexDirection : "column",backgroundColor : "#EAF0F1"
+    flex: 1,justifyContent : "center",flexDirection : "column",backgroundColor : "#777E8B",
   },
   top : {
     flex : 2,justifyContent : "center",alignItems : "center"
@@ -381,7 +426,7 @@ const styles = StyleSheet.create({
     flex : 6,backgroundColor : "#2F363F"
   },
   box : {
-    flex : 1,flexDirection : "column",borderWidth : 2,borderColor : "#6ab04c"
+    flex : 1,flexDirection : "column",borderWidth : 2,borderColor : "#6ab04c",backgroundColor : "#EAF0F1"
   },
   bottom : {
     flex : 2, alignItems : "center",justifyContent : "center",flexDirection : "row"
@@ -393,12 +438,16 @@ const styles = StyleSheet.create({
     flex : 1,borderWidth : 1,borderColor : "black",alignItems : "center",justifyContent : "center",borderRadius : 50
   },
   boxText : {
-    fontSize : 28,color : "white"
+    fontSize : 28,color : "#EAF0F1",fontFamily : "Satisfy"
   },
   topText : {
-    fontSize : 35,
+    fontSize : 35,color : "#EAF0F1",fontFamily : "Satisfy",textDecorationLine : "underline"
   },
   myText : {
-    fontSize : 30
+    fontSize : 30,color : "#EAF0F1",fontFamily : "Caveat"
+  },
+  score : {
+    fontSize : 20,position : "absolute",right : 20,top : 120,color : "#EAF0F1",backgroundColor : "#E8290B",borderRadius : 20,
+    fontFamily : "Caveat"
   }
 })
